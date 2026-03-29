@@ -1,1 +1,52 @@
 @import "tailwindcss";
+
+:root {
+	--brand-primary: #0f766e;
+	--brand-primary-soft: #dff7f3;
+	--brand-text: #0f172a;
+	--brand-muted: #475569;
+	--brand-radius: 14px;
+}
+
+body {
+	margin: 0;
+	font-family: "Manrope", "Segoe UI", sans-serif;
+	color: var(--brand-text);
+	background: radial-gradient(circle at 20% 20%, #ecfeff 0%, #f8fafc 45%, #eef2ff 100%);
+}
+
+.auth-surface {
+	background-image:
+		linear-gradient(120deg, rgba(15, 118, 110, 0.08), rgba(14, 116, 144, 0.04)),
+		radial-gradient(circle at 80% 15%, rgba(14, 165, 233, 0.12), transparent 45%);
+}
+
+.p-card {
+	border-radius: var(--brand-radius);
+	border: 1px solid #dbeafe;
+	box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+
+.p-button,
+.p-inputtext,
+.p-inputnumber-input,
+.p-datepicker-input,
+.p-textarea,
+.p-tag {
+	border-radius: 10px;
+}
+
+.p-button.p-button-primary,
+.p-button.p-button-contrast {
+	background: linear-gradient(135deg, #0f766e, #0e7490);
+	border-color: #0f766e;
+}
+
+.p-button.p-button-primary:hover,
+.p-button.p-button-contrast:hover {
+	filter: brightness(1.05);
+}
+
+.p-card .p-card-subtitle {
+	color: var(--brand-muted);
+}

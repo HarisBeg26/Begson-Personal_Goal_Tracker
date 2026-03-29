@@ -12,9 +12,12 @@
     "format": "oxfmt src/"
   },
   "dependencies": {
+    "@primeuix/themes": "^2.0.3",
     "@supabase/supabase-js": "^2.100.1",
     "@tailwindcss/vite": "^4.2.2",
     "pinia": "^3.0.4",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.4",
     "vue": "beta",
     "vue-router": "^5.0.4"
   },

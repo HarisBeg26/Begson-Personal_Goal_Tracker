@@ -2,6 +2,15 @@
 import { onMounted, ref } from "vue";
 import { useAuthStore } from "../stores/auth";
 import { useGoalsStore } from "../stores/goals";
+import Button from "primevue/button";
+import InputText from "primevue/inputtext";
+import Textarea from "primevue/textarea";
+import DatePicker from "primevue/datepicker";
+import Checkbox from "primevue/checkbox";
+import InputNumber from "primevue/inputnumber";
+import Message from "primevue/message";
+import Card from "primevue/card";
+import Tag from "primevue/tag";
 
 const authStore = useAuthStore();
 const goalsStore = useGoalsStore();
@@ -10,10 +19,10 @@ const title = ref("");
 const description = ref("");
 const actionPlan = ref("");
 const metricLabel = ref("");
-const metricTarget = ref<string>("");
+const metricTarget = ref<number | null>(null);
 const metricUnit = ref("");
-const startDate = ref("");
-const targetDate = ref("");
+const startDate = ref<Date | null>(null);
+const targetDate = ref<Date | null>(null);
 
 const isSpecific = ref(false);
 const isMeasurable = ref(false);
@@ -28,6 +37,20 @@ const createError = ref<string | null>(null);
 onMounted(() => {
   void goalsStore.fetchGoals();
 });
+
+function formatDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function statusSeverity(status: string): "success" | "warn" | "danger" | "contrast" {
+  if (status === "completed") return "success";
+  if (status === "paused") return "warn";
+  if (status === "cancelled") return "danger";
+  return "contrast";
+}
 
 async function handleCreateGoal() {
   createError.value = null;
@@ -56,10 +79,10 @@ async function handleCreateGoal() {
       is_personal: isPersonal.value,
       is_aligned: isAligned.value,
       metric_label: metricLabel.value || null,
-      metric_target: metricTarget.value ? Number(metricTarget.value) : null,
+      metric_target: metricTarget.value,
       metric_unit: metricUnit.value || null,
-      start_date: startDate.value || null,
-      target_date: targetDate.value,
+      start_date: startDate.value ? formatDate(startDate.value) : null,
+      target_date: formatDate(targetDate.value),
       status: "active",
     });
 
@@ -67,10 +90,10 @@ async function handleCreateGoal() {
     description.value = "";
     actionPlan.value = "";
     metricLabel.value = "";
-    metricTarget.value = "";
+    metricTarget.value = null;
     metricUnit.value = "";
-    startDate.value = "";
-    targetDate.value = "";
+    startDate.value = null;
+    targetDate.value = null;
     isSpecific.value = false;
     isMeasurable.value = false;
     isRealistic.value = false;
@@ -94,115 +117,129 @@ async function handleCreateGoal() {
         </h1>
         <p class="text-gray-600">Personal development dashboard</p>
       </div>
-      <button
+      <Button
         @click="authStore.logout"
-        class="rounded-lg bg-red-500 px-4 py-2 text-white transition hover:bg-red-600"
-      >
-        Sign out
-      </button>
+        icon="pi pi-sign-out"
+        label="Sign out"
+        severity="danger"
+        outlined
+      />
     </header>
 
-    <section class="rounded-xl border bg-white p-5 space-y-4">
-      <h2 class="text-lg font-semibold">Create Goal</h2>
+    <Card>
+      <template #title>Create Goal</template>
+      <template #content>
+        <div class="space-y-4">
+          <InputText
+            v-model="title"
+            placeholder="Goal title"
+            class="w-full"
+          />
 
-      <input
-        v-model="title"
-        type="text"
-        placeholder="Goal title"
-        class="w-full rounded-lg border px-3 py-2"
-      />
+          <Textarea
+            v-model="description"
+            rows="2"
+            placeholder="Description"
+            class="w-full"
+            autoResize
+          />
 
-      <textarea
-        v-model="description"
-        rows="2"
-        placeholder="Description"
-        class="w-full rounded-lg border px-3 py-2"
-      />
+          <Textarea
+            v-model="actionPlan"
+            rows="3"
+            placeholder="Action plan"
+            class="w-full"
+            autoResize
+          />
 
-      <textarea
-        v-model="actionPlan"
-        rows="3"
-        placeholder="Action plan"
-        class="w-full rounded-lg border px-3 py-2"
-      />
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <InputText
+              v-model="metricLabel"
+              placeholder="Metric label (pages)"
+            />
+            <InputNumber
+              v-model="metricTarget"
+              :min="0"
+              :minFractionDigits="0"
+              :maxFractionDigits="2"
+              placeholder="Metric target"
+            />
+            <InputText
+              v-model="metricUnit"
+              placeholder="Metric unit (pages/day)"
+            />
+          </div>
 
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <input
-          v-model="metricLabel"
-          type="text"
-          placeholder="Metric label (pages)"
-          class="rounded-lg border px-3 py-2"
-        />
-        <input
-          v-model="metricTarget"
-          type="number"
-          min="0"
-          step="0.01"
-          placeholder="Metric target"
-          class="rounded-lg border px-3 py-2"
-        />
-        <input
-          v-model="metricUnit"
-          type="text"
-          placeholder="Metric unit (pages/day)"
-          class="rounded-lg border px-3 py-2"
-        />
-      </div>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="space-y-1">
+              <label class="text-sm text-gray-600">Start date</label>
+              <DatePicker
+                v-model="startDate"
+                dateFormat="yy-mm-dd"
+                showIcon
+                iconDisplay="input"
+                class="w-full"
+              />
+            </div>
+            <div class="space-y-1">
+              <label class="text-sm text-gray-600">Target date</label>
+              <DatePicker
+                v-model="targetDate"
+                dateFormat="yy-mm-dd"
+                showIcon
+                iconDisplay="input"
+                class="w-full"
+              />
+            </div>
+          </div>
 
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div>
-          <label class="mb-1 block text-sm text-gray-600">Start date</label>
-          <input v-model="startDate" type="date" class="w-full rounded-lg border px-3 py-2" />
+          <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <label class="flex items-center gap-2"><Checkbox v-model="isSpecific" binary /> Specific</label>
+            <label class="flex items-center gap-2"><Checkbox v-model="isMeasurable" binary /> Measurable</label>
+            <label class="flex items-center gap-2"><Checkbox v-model="isRealistic" binary /> Realistic</label>
+            <label class="flex items-center gap-2"><Checkbox v-model="isPositive" binary /> Positive</label>
+            <label class="flex items-center gap-2"><Checkbox v-model="isPersonal" binary /> Personal</label>
+            <label class="flex items-center gap-2"><Checkbox v-model="isAligned" binary /> Aligned</label>
+          </div>
+
+          <Button
+            @click="handleCreateGoal"
+            :loading="createLoading"
+            label="Save Goal"
+            icon="pi pi-check"
+          />
+
+          <Message v-if="createError" severity="error" :closable="false">{{ createError }}</Message>
+          <Message v-if="goalsStore.error" severity="error" :closable="false">{{ goalsStore.error }}</Message>
         </div>
-        <div>
-          <label class="mb-1 block text-sm text-gray-600">Target date</label>
-          <input v-model="targetDate" type="date" class="w-full rounded-lg border px-3 py-2" />
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <label class="flex items-center gap-2"><input v-model="isSpecific" type="checkbox" /> Specific</label>
-        <label class="flex items-center gap-2"><input v-model="isMeasurable" type="checkbox" /> Measurable</label>
-        <label class="flex items-center gap-2"><input v-model="isRealistic" type="checkbox" /> Realistic</label>
-        <label class="flex items-center gap-2"><input v-model="isPositive" type="checkbox" /> Positive</label>
-        <label class="flex items-center gap-2"><input v-model="isPersonal" type="checkbox" /> Personal</label>
-        <label class="flex items-center gap-2"><input v-model="isAligned" type="checkbox" /> Aligned</label>
-      </div>
-
-      <button
-        @click="handleCreateGoal"
-        :disabled="createLoading"
-        class="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-50"
-      >
-        {{ createLoading ? "Saving..." : "Save Goal" }}
-      </button>
-
-      <p v-if="createError" class="text-sm text-red-600">{{ createError }}</p>
-      <p v-if="goalsStore.error" class="text-sm text-red-600">{{ goalsStore.error }}</p>
-    </section>
+      </template>
+    </Card>
 
     <section class="space-y-3">
       <h2 class="text-lg font-semibold">My Goals</h2>
 
-      <p v-if="goalsStore.loading" class="text-gray-600">Loading goals...</p>
-      <p v-else-if="goalsStore.goals.length === 0" class="text-gray-600">No goals yet.</p>
+      <Message v-if="goalsStore.loading" severity="info" :closable="false">Loading goals...</Message>
+      <Message v-else-if="goalsStore.goals.length === 0" severity="secondary" :closable="false">No goals yet.</Message>
 
       <div v-else class="grid gap-3">
-        <article
+        <Card
           v-for="goal in goalsStore.goals"
           :key="goal.id"
-          class="rounded-xl border bg-white p-4"
         >
-          <div class="flex items-center justify-between">
-            <h3 class="font-semibold">{{ goal.title }}</h3>
-            <span class="text-sm text-gray-500">{{ goal.status }}</span>
-          </div>
-          <p v-if="goal.description" class="mt-1 text-sm text-gray-700">{{ goal.description }}</p>
-          <p v-if="goal.action_plan" class="mt-1 text-sm text-gray-600">{{ goal.action_plan }}</p>
-          <p class="mt-2 text-sm text-gray-600">
-            {{ goal.start_date }} -> {{ goal.target_date }}
-          </p>
-        </article>
+          <template #title>
+            <div class="flex items-center justify-between">
+              <span>{{ goal.title }}</span>
+              <Tag :severity="statusSeverity(goal.status)" :value="goal.status" />
+            </div>
+          </template>
+          <template #content>
+            <p v-if="goal.description" class="text-sm text-gray-700">{{ goal.description }}</p>
+            <p v-if="goal.action_plan" class="mt-1 text-sm text-gray-600">{{ goal.action_plan }}</p>
+            <p class="mt-2 text-sm text-gray-600">
+              {{ goal.start_date }} -> {{ goal.target_date }}
+            </p>
+          </template>
+        </Card>
       </div>
     </section>
   </div>
