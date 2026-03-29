@@ -36,6 +36,11 @@ body {
 	border-radius: 10px;
 }
 
+.p-inputnumber,
+.p-datepicker {
+	width: 100%;
+}
+
 .p-button.p-button-primary,
 .p-button.p-button-contrast {
 	background: linear-gradient(135deg, #0f766e, #0e7490);
@@ -47,6 +52,94 @@ body {
 	filter: brightness(1.05);
 }
 
+.p-button:focus-visible,
+.p-inputtext:focus-visible,
+.p-inputnumber-input:focus-visible,
+.p-datepicker-input:focus-visible,
+.p-textarea:focus-visible,
+.p-checkbox-input:focus-visible + .p-checkbox-box,
+.p-dialog .p-dialog-header-icon:focus-visible {
+	outline: 3px solid rgba(14, 116, 144, 0.35);
+	outline-offset: 2px;
+}
+
 .p-card .p-card-subtitle {
 	color: var(--brand-muted);
+}
+
+.p-progressbar {
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.22);
+}
+
+.p-progressbar .p-progressbar-value {
+	background: rgba(15, 23, 42, 0.35);
+}
+
+.p-dialog {
+	border-radius: 18px;
+	overflow: hidden;
+}
+
+.p-dialog-mask {
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+}
+
+.p-dialog .p-dialog-header {
+	padding: 1.15rem 1.25rem;
+	border-bottom: 1px solid #e2e8f0;
+}
+
+.p-dialog .p-dialog-content {
+	padding: 1rem 1.25rem;
+	overflow-x: hidden;
+	overflow-y: auto;
+	max-height: 70vh;
+}
+
+.p-dialog .p-dialog-footer {
+	border-top: 1px solid #e2e8f0;
+	padding: 0.9rem 1.25rem;
+}
+
+.dashboard-nav-actions {
+	scrollbar-width: none;
+}
+
+.dashboard-nav-actions::-webkit-scrollbar {
+	display: none;
+}
+
+.goal-form-shell {
+	width: 94%;
+	margin: 0 auto;
+}
+
+.goal-form-shell .p-inputtext,
+.goal-form-shell .p-inputnumber,
+.goal-form-shell .p-inputnumber-input,
+.goal-form-shell .p-datepicker,
+.goal-form-shell .p-datepicker-input,
+.goal-form-shell .p-textarea {
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+}
+
+.goal-form-shell .p-inputnumber-input {
+	padding-right: 0.75rem;
+}
+
+@media (max-width: 640px) {
+	.goal-dialog .p-dialog-header,
+	.goal-dialog .p-dialog-content,
+	.goal-dialog .p-dialog-footer {
+		padding-left: 0.85rem;
+		padding-right: 0.85rem;
+	}
+
+	.goal-form-shell {
+		width: 96%;
+	}
 }

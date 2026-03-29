@@ -2,6 +2,8 @@
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
+import Card from 'primevue/card'
+import ProgressSpinner from 'primevue/progressspinner'
 
 const router = useRouter()
 
@@ -22,7 +24,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex items-center justify-center min-h-screen">
-    <p class="text-gray-500 text-lg">Signing you in...</p>
+  <div class="auth-surface flex min-h-screen items-center justify-center px-4">
+    <Card class="w-full max-w-md text-center">
+      <template #title>Signing You In</template>
+      <template #content>
+        <div class="flex flex-col items-center gap-4">
+          <ProgressSpinner style="width: 52px; height: 52px" strokeWidth="6" />
+          <p class="text-gray-600">Finalizing your secure session...</p>
+        </div>
+      </template>
+    </Card>
   </div>
 </template>
