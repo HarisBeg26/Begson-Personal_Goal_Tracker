@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import { healthRouter } from './routes/health'
+import { goalsRouter } from './routes/goals'
 
 dotenv.config()
 
@@ -15,6 +16,8 @@ app.use(cors({
 app.use(express.json())
 
 app.use('/api/health', healthRouter)
+
+app.use('/api/goals', goalsRouter)
 
 app.use((_req, res)=> {
     res.status(404).json({ message: 'Route not found' })
