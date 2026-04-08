@@ -16,5 +16,4 @@ npm --prefix client run build
 echo "Building server..."
 npm --prefix server run build
 
-echo "Starting server..."
-NODE_ENV=production node server/dist/index.js
+echo "Build complete!"
