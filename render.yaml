@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: bash build.sh
+    buildCommand: npm run build
     startCommand: npm start
     envVars:
       - key: SUPABASE_URL
