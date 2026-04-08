@@ -30,8 +30,8 @@ app.use('/api/achievements', achievementsRouter)
 const frontendPath = path.join(__dirname, '../../client/dist')
 app.use(express.static(frontendPath))
 
-// SPA fallback - serve index.html for all non-API routes
-app.get('*', (_req, res) => {
+// SPA fallback - serve index.html for all non-API routes (Express 5 compatible)
+app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(path.join(frontendPath, 'index.html'), (err) => {
     if (err) {
       res.status(404).json({ message: 'Route not found' })
