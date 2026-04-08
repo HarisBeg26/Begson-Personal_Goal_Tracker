@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 import { useGoalsStore } from "../stores/goals";
+import { useAchievementsStore } from "../stores/achievements";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import Textarea from "primevue/textarea";
@@ -18,10 +19,12 @@ import { useToast } from "primevue/usetoast";
 
 const authStore = useAuthStore();
 const goalsStore = useGoalsStore();
+const achievementsStore = useAchievementsStore();
 const toast = useToast();
 const router = useRouter();
 const activeSection = ref<"dashboard" | "achievements">("dashboard");
 const createGoalDialogVisible = ref(false);
+const editingGoalId = ref<string | null>(null);
 
 const title = ref("");
 const description = ref("");
@@ -42,83 +45,12 @@ const isAligned = ref(false);
 const createLoading = ref(false);
 const createError = ref<string | null>(null);
 
-type AchievementRule = {
-  id: string;
-  name: string;
-  description: string;
-  isUnlocked: () => boolean;
-};
-
 onMounted(() => {
   void goalsStore.fetchGoals();
+  void achievementsStore.fetchAchievements();
 });
 
-const completedGoals = computed(() => goalsStore.goals.filter((goal) => goal.status === "completed").length);
 const activeGoalsCount = computed(() => goalsStore.goals.filter((goal) => goal.status === "active").length);
-
-const achievementRules = computed<AchievementRule[]>(() => [
-  {
-    id: "first-step",
-    name: "First Step",
-    description: "Create your first goal",
-    isUnlocked: () => goalsStore.goals.length >= 1,
-  },
-  {
-    id: "goal-setter",
-    name: "Goal Setter",
-    description: "Create 5 goals",
-    isUnlocked: () => goalsStore.goals.length >= 5,
-  },
-  {
-    id: "ambitious-achiever",
-    name: "Ambitious Achiever",
-    description: "Create 10 goals",
-    isUnlocked: () => goalsStore.goals.length >= 10,
-  },
-  {
-    id: "finisher",
-    name: "Finisher",
-    description: "Complete your first goal",
-    isUnlocked: () => completedGoals.value >= 1,
-  },
-  {
-    id: "dedicated",
-    name: "Dedicated",
-    description: "Complete 5 goals",
-    isUnlocked: () => completedGoals.value >= 5,
-  },
-  {
-    id: "halfway-hero",
-    name: "Halfway Hero",
-    description: "Reach 50% progress on a goal",
-    isUnlocked: () => goalsStore.goals.some((goal) => (goal.metric_target ?? 0) >= 50),
-  },
-  {
-    id: "consistent-tracker",
-    name: "Consistent Tracker",
-    description: "Keep 3 active goals",
-    isUnlocked: () => goalsStore.goals.filter((goal) => goal.status === "active").length >= 3,
-  },
-  {
-    id: "perfect-week",
-    name: "Perfect Week",
-    description: "Complete 2 goals in one week",
-    isUnlocked: () => completedGoals.value >= 2,
-  },
-]);
-
-const unlockedAchievements = computed(() =>
-  achievementRules.value.filter((achievement) => achievement.isUnlocked()),
-);
-
-const lockedAchievements = computed(() =>
-  achievementRules.value.filter((achievement) => !achievement.isUnlocked()),
-);
-
-const achievementPercent = computed(() => {
-  if (achievementRules.value.length === 0) return 0;
-  return Math.round((unlockedAchievements.value.length / achievementRules.value.length) * 100);
-});
 
 function formatDate(date: Date): string {
   const year = date.getFullYear();
@@ -127,16 +59,86 @@ function formatDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function statusSeverity(status: string): "success" | "warn" | "danger" | "contrast" {
+function parseDate(value: string | null): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDisplayDate(value: string): string {
+  const parsed = parseDate(value);
+  if (!parsed) return value;
+
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+}
+
+function formatGoalDateRange(start: string, end: string): string {
+  return `From ${formatDisplayDate(start)} to ${formatDisplayDate(end)}`;
+}
+
+function statusSeverity(status: string): "success" | "warn" | "danger" | "info" {
   if (status === "completed") return "success";
   if (status === "paused") return "warn";
   if (status === "cancelled") return "danger";
-  return "contrast";
+  return "info";
 }
 
+const goalDialogHeader = computed(() => (editingGoalId.value ? "Edit Goal" : "Create New Goal"));
+const goalDialogActionLabel = computed(() => (editingGoalId.value ? "Update Goal" : "Save Goal"));
+
 function openCreateGoalDialog() {
+  editingGoalId.value = null;
+  title.value = "";
+  description.value = "";
+  actionPlan.value = "";
+  metricLabel.value = "";
+  metricTarget.value = null;
+  metricUnit.value = "";
+  startDate.value = null;
+  targetDate.value = null;
+  isSpecific.value = false;
+  isMeasurable.value = false;
+  isRealistic.value = false;
+  isPositive.value = false;
+  isPersonal.value = false;
+  isAligned.value = false;
   createError.value = null;
   createGoalDialogVisible.value = true;
+}
+
+function openEditGoalDialog(goal: (typeof goalsStore.goals)[number]) {
+  editingGoalId.value = goal.id;
+  title.value = goal.title;
+  description.value = goal.description ?? "";
+  actionPlan.value = goal.action_plan ?? "";
+  metricLabel.value = goal.metric_label ?? "";
+  metricTarget.value = goal.metric_target;
+  metricUnit.value = goal.metric_unit ?? "";
+  startDate.value = parseDate(goal.start_date);
+  targetDate.value = parseDate(goal.target_date);
+  isSpecific.value = goal.is_specific;
+  isMeasurable.value = goal.is_measurable;
+  isRealistic.value = goal.is_realistic;
+  isPositive.value = goal.is_positive;
+  isPersonal.value = goal.is_personal;
+  isAligned.value = goal.is_aligned;
+  createError.value = null;
+  createGoalDialogVisible.value = true;
+}
+
+function showUnlockedAchievementToasts(unlocked: { name: string; description: string }[]) {
+  unlocked.forEach((achievement) => {
+    toast.add({
+      severity: "success",
+      summary: `Achievement unlocked: ${achievement.name}`,
+      detail: achievement.description,
+      life: 3500,
+    });
+  });
 }
 
 async function handleSignOut() {
@@ -153,8 +155,9 @@ async function handleSignOut() {
   }
 }
 
-async function handleCreateGoal() {
+async function handleSaveGoal() {
   createError.value = null;
+  const isEditing = !!editingGoalId.value;
 
   if (!title.value.trim()) {
     createError.value = "Title is required";
@@ -171,7 +174,7 @@ async function handleCreateGoal() {
   createLoading.value = true;
 
   try {
-    await goalsStore.createGoal({
+    const payload = {
       title: title.value.trim(),
       description: description.value || null,
       action_plan: actionPlan.value || null,
@@ -186,9 +189,18 @@ async function handleCreateGoal() {
       metric_unit: metricUnit.value || null,
       start_date: startDate.value ? formatDate(startDate.value) : null,
       target_date: formatDate(targetDate.value),
-      status: "active",
-    });
+    };
 
+    if (editingGoalId.value) {
+      await goalsStore.updateGoal(editingGoalId.value, payload);
+    } else {
+      await goalsStore.createGoal({
+        ...payload,
+        status: "active",
+      });
+    }
+
+    editingGoalId.value = null;
     title.value = "";
     description.value = "";
     actionPlan.value = "";
@@ -206,10 +218,13 @@ async function handleCreateGoal() {
 
     toast.add({
       severity: "success",
-      summary: "Goal saved",
-      detail: "Your goal has been added to your dashboard.",
+      summary: isEditing ? "Goal updated" : "Goal saved",
+      detail: isEditing ? "Your goal has been updated." : "Your goal has been added to your dashboard.",
       life: 2500,
     });
+
+    const newlyUnlocked = await achievementsStore.fetchAchievements({ detectNewUnlocks: true });
+    showUnlockedAchievementToasts(newlyUnlocked);
 
     createGoalDialogVisible.value = false;
   } catch (err) {
@@ -222,6 +237,28 @@ async function handleCreateGoal() {
     });
   } finally {
     createLoading.value = false;
+  }
+}
+
+async function handleCompleteGoal(goalId: string) {
+  try {
+    await goalsStore.updateGoal(goalId, { status: "completed" });
+    toast.add({
+      severity: "success",
+      summary: "Goal completed",
+      detail: "Great work. Keep your momentum going.",
+      life: 2500,
+    });
+
+    const newlyUnlocked = await achievementsStore.fetchAchievements({ detectNewUnlocks: true });
+    showUnlockedAchievementToasts(newlyUnlocked);
+  } catch {
+    toast.add({
+      severity: "error",
+      summary: "Update failed",
+      detail: "Could not mark goal as completed.",
+      life: 3000,
+    });
   }
 }
 </script>
@@ -262,7 +299,7 @@ async function handleCreateGoal() {
           <Button
             label="New Goal"
             icon="pi pi-plus"
-            class="shrink-0 sm:hidden"
+            class="shrink-0"
             aria-label="Create new goal"
             @click="openCreateGoalDialog"
           />
@@ -321,7 +358,24 @@ async function handleCreateGoal() {
             <p v-if="goal.description" class="text-sm text-slate-700">{{ goal.description }}</p>
             <p v-if="goal.action_plan" class="mt-2 text-sm text-slate-500">{{ goal.action_plan }}</p>
             <div class="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600">
-              {{ goal.start_date }} -> {{ goal.target_date }}
+              {{ formatGoalDateRange(goal.start_date, goal.target_date) }}
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <Button
+                size="small"
+                label="Edit"
+                icon="pi pi-pencil"
+                severity="secondary"
+                outlined
+                @click="openEditGoalDialog(goal)"
+              />
+              <Button
+                v-if="goal.status !== 'completed'"
+                size="small"
+                label="Complete"
+                icon="pi pi-check"
+                @click="handleCompleteGoal(goal.id)"
+              />
             </div>
           </template>
         </Card>
@@ -331,28 +385,31 @@ async function handleCreateGoal() {
     <section v-else class="space-y-6" aria-labelledby="achievements-heading">
       <div>
         <h2 id="achievements-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">Achievements</h2>
-        <p class="mt-2 text-slate-500">{{ unlockedAchievements.length }} of {{ achievementRules.length }} unlocked</p>
+        <p class="mt-2 text-slate-500">{{ achievementsStore.unlocked.length }} of {{ achievementsStore.items.length }} unlocked</p>
       </div>
+
+      <Message v-if="achievementsStore.loading" severity="info" :closable="false">Loading achievements...</Message>
+      <Message v-else-if="achievementsStore.error" severity="error" :closable="false">{{ achievementsStore.error }}</Message>
 
       <div class="rounded-3xl bg-gradient-to-r from-teal-600 to-cyan-600 p-6 text-white shadow-lg shadow-teal-500/25 sm:p-7">
         <div class="flex items-start justify-between">
           <div>
-            <p class="text-4xl font-bold sm:text-5xl">{{ achievementPercent }}%</p>
-            <p class="mt-2 text-white/90">{{ unlockedAchievements.length }} achievements unlocked</p>
+            <p class="text-4xl font-bold sm:text-5xl">{{ achievementsStore.percent }}%</p>
+            <p class="mt-2 text-white/90">{{ achievementsStore.unlocked.length }} achievements unlocked</p>
           </div>
           <i class="pi pi-trophy text-3xl text-white/90 sm:text-4xl" />
         </div>
-        <ProgressBar class="mt-5" :value="achievementPercent" :showValue="false" />
+        <ProgressBar class="mt-5" :value="achievementsStore.percent" :showValue="false" />
       </div>
 
-      <div v-if="unlockedAchievements.length > 0" class="space-y-3">
+      <div v-if="achievementsStore.unlocked.length > 0" class="space-y-3">
         <h3 class="text-xl font-semibold sm:text-2xl">Unlocked</h3>
         <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <Card v-for="achievement in unlockedAchievements" :key="achievement.id" class="h-full">
+          <Card v-for="achievement in achievementsStore.unlocked" :key="achievement.id" class="h-full">
             <template #content>
               <div class="space-y-3">
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                  <i class="pi pi-check-circle" />
+                  <i :class="achievement.icon || 'pi pi-check-circle'" />
                 </div>
                 <p class="text-lg font-semibold">{{ achievement.name }}</p>
                 <p class="text-sm text-slate-500">{{ achievement.description }}</p>
@@ -365,7 +422,7 @@ async function handleCreateGoal() {
       <div class="space-y-3">
         <h3 class="text-xl font-semibold sm:text-2xl">Locked</h3>
         <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <Card v-for="achievement in lockedAchievements" :key="achievement.id" class="h-full">
+          <Card v-for="achievement in achievementsStore.locked" :key="achievement.id" class="h-full">
             <template #content>
               <div class="space-y-3">
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
@@ -383,7 +440,7 @@ async function handleCreateGoal() {
     <Dialog
       v-model:visible="createGoalDialogVisible"
       modal
-      header="Create New Goal"
+      :header="goalDialogHeader"
       class="goal-dialog w-[96vw] max-w-2xl"
       :draggable="false"
       :breakpoints="{ '960px': '90vw', '640px': '96vw' }"
@@ -480,9 +537,9 @@ async function handleCreateGoal() {
         <div class="flex w-full justify-end gap-2">
           <Button label="Cancel" severity="secondary" outlined @click="createGoalDialogVisible = false" />
           <Button
-            @click="handleCreateGoal"
+            @click="handleSaveGoal"
             :loading="createLoading"
-            label="Save Goal"
+            :label="goalDialogActionLabel"
             icon="pi pi-check"
           />
         </div>

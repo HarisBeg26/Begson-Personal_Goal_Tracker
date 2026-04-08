@@ -45,6 +45,24 @@ interface CreateGoalInput {
   status?: GoalStatus;
 }
 
+interface UpdateGoalInput {
+  title?: string;
+  description?: string | null;
+  action_plan?: string | null;
+  is_specific?: boolean;
+  is_measurable?: boolean;
+  is_realistic?: boolean;
+  is_positive?: boolean;
+  is_personal?: boolean;
+  is_aligned?: boolean;
+  metric_label?: string | null;
+  metric_target?: number | null;
+  metric_unit?: string | null;
+  start_date?: string | null;
+  target_date?: string | null;
+  status?: GoalStatus;
+}
+
 interface GoalsResponse {
   data: Goal[];
 }
@@ -87,5 +105,24 @@ export const useGoalsStore = defineStore("goals", () => {
     }
   }
 
-  return { goals, loading, error, fetchGoals, createGoal };
+  async function updateGoal(goalId: string, input: UpdateGoalInput) {
+    error.value = null;
+
+    try {
+      const res = await apiFetch<GoalResponse>(`/api/goals/${goalId}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      });
+
+      const index = goals.value.findIndex((goal) => goal.id === goalId);
+      if (index !== -1) {
+        goals.value[index] = res.data;
+      }
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : "Failed to update goal";
+      throw err;
+    }
+  }
+
+  return { goals, loading, error, fetchGoals, createGoal, updateGoal };
 });

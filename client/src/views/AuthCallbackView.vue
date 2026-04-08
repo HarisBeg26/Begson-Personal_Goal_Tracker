@@ -8,13 +8,32 @@ import ProgressSpinner from 'primevue/progressspinner'
 const router = useRouter()
 
 onMounted(async () => {
-  // Supabase automatically picks up the OAuth code from the URL
-  const { error } = await supabase.auth.exchangeCodeForSession(
-    window.location.href
-  )
+  const url = new URL(window.location.href)
+  const authCode = url.searchParams.get('code')
+  const providerError = url.searchParams.get('error_description')
 
-  if (error) {
-    console.error('Auth callback error:', error)
+  if (providerError) {
+    console.error('Auth callback provider error:', providerError)
+    router.replace({ name: 'login' })
+    return
+  }
+
+  // If session is already present (processed earlier), do not re-exchange PKCE code.
+  const { data: existingSession } = await supabase.auth.getSession()
+
+  if (!existingSession.session && authCode) {
+    const { error } = await supabase.auth.exchangeCodeForSession(window.location.href)
+
+    if (error) {
+      console.error('Auth callback error:', error)
+      router.replace({ name: 'login' })
+      return
+    }
+  }
+
+  const { data: finalSession } = await supabase.auth.getSession()
+
+  if (!finalSession.session) {
     router.replace({ name: 'login' })
     return
   }
