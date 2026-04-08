@@ -3,9 +3,9 @@ import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
-import { healthRouter } from './routes/health'
-import { goalsRouter } from './routes/goals'
-import { achievementsRouter } from './routes/achievements'
+import { healthRouter } from './routes/health.js'
+import { goalsRouter } from './routes/goals.js'
+import { achievementsRouter } from './routes/achievements.js'
 
 dotenv.config()
 

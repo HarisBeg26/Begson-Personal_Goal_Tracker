@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { supabaseAdmin } from "../config/supabase";
-import { AuthRequest, requireAuth } from "../middleware/auth";
+import { supabaseAdmin } from "../config/supabase.js";
+import { AuthRequest, requireAuth } from "../middleware/auth.js";
 
 export const achievementsRouter = Router();
 

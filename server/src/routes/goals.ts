@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { supabaseAdmin} from "../config/supabase";
-import { AuthRequest, requireAuth } from "../middleware/auth";
-import { evaluateAndUnlockAchievements } from "../services/achievementEvaluator";
+import { supabaseAdmin} from "../config/supabase.js";
+import { AuthRequest, requireAuth } from "../middleware/auth.js";
+import { evaluateAndUnlockAchievements } from "../services/achievementEvaluator.js";
 
 type GoalStatus = "active" | "paused" | "completed" | "cancelled"
 
