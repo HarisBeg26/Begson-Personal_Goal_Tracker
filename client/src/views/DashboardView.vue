@@ -113,6 +113,20 @@ function formatSmartFlags(goal: Goal): string {
   return flags.join(", ");
 }
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40) || "goal";
+}
+
+function normalizeExportText(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.replace(/\s+/g, " ").trim();
+}
+
 function triggerDownload(fileName: string, blob: Blob) {
   const link = document.createElement("a");
   const fileUrl = URL.createObjectURL(blob);
@@ -124,7 +138,7 @@ function triggerDownload(fileName: string, blob: Blob) {
   URL.revokeObjectURL(fileUrl);
 }
 
-function exportGoalsAsCsv(goals: Goal[]) {
+function exportGoalsAsCsv(goals: Goal[], fileSuffix = "all") {
   const headers = [
     "Title",
     "Description",
@@ -159,16 +173,17 @@ function exportGoalsAsCsv(goals: Goal[]) {
     .map((row) => row.map((cell) => csvEscape(cell)).join(","))
     .join("\n");
 
-  const fileName = `goals-${new Date().toISOString().slice(0, 10)}.csv`;
+  const fileName = `goals-${fileSuffix}-${new Date().toISOString().slice(0, 10)}.csv`;
   triggerDownload(fileName, new Blob([csvContent], { type: "text/csv;charset=utf-8" }));
 }
 
-function exportGoalsAsPdf(goals: Goal[]) {
+function exportGoalsAsPdf(goals: Goal[], fileSuffix = "all") {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageHeight = doc.internal.pageSize.getHeight();
   const left = 14;
   const right = 14;
   const maxWidth = doc.internal.pageSize.getWidth() - left - right;
+  const lineHeight = 4.5;
   let y = 16;
 
   const ensureSpace = (requiredHeight: number) => {
@@ -177,62 +192,67 @@ function exportGoalsAsPdf(goals: Goal[]) {
     y = 16;
   };
 
-  const writeParagraph = (text: string, fontSize = 10, spacing = 5) => {
+  const writeParagraph = (text: string, fontSize = 10, spacing = lineHeight) => {
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, maxWidth);
-    const blockHeight = lines.length * spacing;
+    const lines = doc.splitTextToSize(normalizeExportText(text), maxWidth) as string[];
+    const blockHeight = lines.length * spacing + 0.5;
     ensureSpace(blockHeight);
-    lines.forEach((line: string) => {
-      doc.text(line, left, y);
-      y += spacing;
-    });
+    doc.text(lines, left, y, { baseline: "top" });
+    y += lines.length * spacing + 0.5;
   };
 
+  const writeLabeledParagraph = (label: string, value: string) => {
+    writeParagraph(`${label}: ${value}`);
+  };
+
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.text("Goals Export", left, y);
   y += 7;
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.text(`Generated on ${new Date().toLocaleString()}`, left, y);
   y += 8;
 
   goals.forEach((goal, index) => {
     ensureSpace(18);
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text(`${index + 1}. ${goal.title}`, left, y);
+    doc.text(`${index + 1}. ${normalizeExportText(goal.title)}`, left, y);
     y += 6;
-    doc.setFontSize(10);
-    writeParagraph(`Status: ${goal.status} | Timeline: ${goal.start_date} to ${goal.target_date}`);
+    writeLabeledParagraph("Status", `${goal.status} | Timeline: ${goal.start_date} to ${goal.target_date}`);
 
     if (goal.description) {
-      writeParagraph(`Description: ${goal.description}`);
+      writeLabeledParagraph("Description", goal.description);
     }
     if (goal.action_plan) {
-      writeParagraph(`Action Plan: ${goal.action_plan}`);
+      writeLabeledParagraph("Action Plan", goal.action_plan);
     }
     if (goal.metric_label || goal.metric_target !== null || goal.metric_unit) {
-      writeParagraph(`Metric (${goal.metric_label ?? "value"}): ${formatMetric(goal) || "N/A"}`);
+      writeLabeledParagraph(`Metric (${goal.metric_label ?? "value"})`, formatMetric(goal) || "N/A");
     }
 
     const smart = formatSmartFlags(goal);
-    writeParagraph(`SMART Flags: ${smart || "None"}`);
+    writeLabeledParagraph("SMART Flags", smart || "None");
 
     if (goal.completed_at) {
-      writeParagraph(`Completed At: ${goal.completed_at}`);
+      writeLabeledParagraph("Completed At", goal.completed_at);
     }
 
-    y += 2;
+    y += 1.5;
     ensureSpace(8);
     doc.setDrawColor(220, 220, 220);
     doc.line(left, y, left + maxWidth, y);
     y += 6;
   });
 
-  const fileName = `goals-${new Date().toISOString().slice(0, 10)}.pdf`;
+  const fileName = `goals-${fileSuffix}-${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(fileName);
 }
 
-function handleExportGoals(format: "csv" | "pdf") {
-  if (goalsStore.goals.length === 0) {
+function handleExportGoals(format: "csv" | "pdf", goals: Goal[] = goalsStore.goals, fileSuffix = "all") {
+  if (goals.length === 0) {
     toast.add({
       severity: "warn",
       summary: "No goals to export",
@@ -245,9 +265,9 @@ function handleExportGoals(format: "csv" | "pdf") {
   exportLoading.value = format;
   try {
     if (format === "csv") {
-      exportGoalsAsCsv(goalsStore.goals);
+      exportGoalsAsCsv(goals, fileSuffix);
     } else {
-      exportGoalsAsPdf(goalsStore.goals);
+      exportGoalsAsPdf(goals, fileSuffix);
     }
 
     toast.add({
@@ -266,6 +286,10 @@ function handleExportGoals(format: "csv" | "pdf") {
   } finally {
     exportLoading.value = null;
   }
+}
+
+function handleExportSingleGoal(goal: Goal, format: "csv" | "pdf") {
+  handleExportGoals(format, [goal], slugify(goal.title));
 }
 
 const goalDialogHeader = computed(() => (editingGoalId.value ? "Edit Goal" : "Create New Goal"));
@@ -573,6 +597,22 @@ async function handleCompleteGoal(goalId: string) {
                 label="Complete"
                 icon="pi pi-check"
                 @click="handleCompleteGoal(goal.id)"
+              />
+              <Button
+                size="small"
+                label="CSV"
+                icon="pi pi-download"
+                severity="secondary"
+                outlined
+                @click="handleExportSingleGoal(goal, 'csv')"
+              />
+              <Button
+                size="small"
+                label="PDF"
+                icon="pi pi-file-pdf"
+                severity="contrast"
+                outlined
+                @click="handleExportSingleGoal(goal, 'pdf')"
               />
             </div>
           </template>
