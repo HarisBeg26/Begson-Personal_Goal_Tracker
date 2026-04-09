@@ -1,10 +1,14 @@
 {
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "https://begson-goal-tracker.onrender.com/api/$1"
+    },
+    {
       "handle": "filesystem"
     },
     {
-      "src": "/.*",
+      "src": "/(.*)",
       "dest": "/index.html"
     }
   ]
