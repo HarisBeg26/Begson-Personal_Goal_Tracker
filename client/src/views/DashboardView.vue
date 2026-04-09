@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
-import { useGoalsStore } from "../stores/goals";
+import { useGoalsStore, type Goal } from "../stores/goals";
 import { useAchievementsStore } from "../stores/achievements";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
@@ -16,6 +16,7 @@ import Tag from "primevue/tag";
 import Dialog from "primevue/dialog";
 import ProgressBar from "primevue/progressbar";
 import { useToast } from "primevue/usetoast";
+import { jsPDF } from "jspdf";
 
 const authStore = useAuthStore();
 const goalsStore = useGoalsStore();
@@ -44,10 +45,11 @@ const isAligned = ref(false);
 
 const createLoading = ref(false);
 const createError = ref<string | null>(null);
+const exportLoading = ref<"csv" | "pdf" | null>(null);
 
 onMounted(() => {
-  void goalsStore.fetchGoals();
-  void achievementsStore.fetchAchievements();
+  goalsStore.fetchGoals();
+  achievementsStore.fetchAchievements();
 });
 
 const activeGoalsCount = computed(() => goalsStore.goals.filter((goal) => goal.status === "active").length);
@@ -85,6 +87,185 @@ function statusSeverity(status: string): "success" | "warn" | "danger" | "info" 
   if (status === "paused") return "warn";
   if (status === "cancelled") return "danger";
   return "info";
+}
+
+function csvEscape(value: string | number | boolean | null): string {
+  const normalized = value === null ? "" : String(value);
+  const escaped = normalized.replaceAll('"', '""');
+  return `"${escaped}"`;
+}
+
+function formatMetric(goal: Goal): string {
+  if (goal.metric_target === null && !goal.metric_unit) return "";
+  if (goal.metric_target === null) return goal.metric_unit ?? "";
+  if (!goal.metric_unit) return String(goal.metric_target);
+  return `${goal.metric_target} ${goal.metric_unit}`;
+}
+
+function formatSmartFlags(goal: Goal): string {
+  const flags: string[] = [];
+  if (goal.is_specific) flags.push("Specific");
+  if (goal.is_measurable) flags.push("Measurable");
+  if (goal.is_realistic) flags.push("Realistic");
+  if (goal.is_positive) flags.push("Positive");
+  if (goal.is_personal) flags.push("Personal");
+  if (goal.is_aligned) flags.push("Aligned");
+  return flags.join(", ");
+}
+
+function triggerDownload(fileName: string, blob: Blob) {
+  const link = document.createElement("a");
+  const fileUrl = URL.createObjectURL(blob);
+  link.href = fileUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(fileUrl);
+}
+
+function exportGoalsAsCsv(goals: Goal[]) {
+  const headers = [
+    "Title",
+    "Description",
+    "Action Plan",
+    "Status",
+    "Start Date",
+    "Target Date",
+    "Completed At",
+    "Metric Label",
+    "Metric",
+    "SMART Flags",
+    "Created At",
+    "Updated At",
+  ];
+
+  const rows = goals.map((goal) => [
+    goal.title,
+    goal.description,
+    goal.action_plan,
+    goal.status,
+    goal.start_date,
+    goal.target_date,
+    goal.completed_at,
+    goal.metric_label,
+    formatMetric(goal),
+    formatSmartFlags(goal),
+    goal.created_at,
+    goal.updated_at,
+  ]);
+
+  const csvContent = [headers, ...rows]
+    .map((row) => row.map((cell) => csvEscape(cell)).join(","))
+    .join("\n");
+
+  const fileName = `goals-${new Date().toISOString().slice(0, 10)}.csv`;
+  triggerDownload(fileName, new Blob([csvContent], { type: "text/csv;charset=utf-8" }));
+}
+
+function exportGoalsAsPdf(goals: Goal[]) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const left = 14;
+  const right = 14;
+  const maxWidth = doc.internal.pageSize.getWidth() - left - right;
+  let y = 16;
+
+  const ensureSpace = (requiredHeight: number) => {
+    if (y + requiredHeight <= pageHeight - 14) return;
+    doc.addPage();
+    y = 16;
+  };
+
+  const writeParagraph = (text: string, fontSize = 10, spacing = 5) => {
+    doc.setFontSize(fontSize);
+    const lines = doc.splitTextToSize(text, maxWidth);
+    const blockHeight = lines.length * spacing;
+    ensureSpace(blockHeight);
+    lines.forEach((line: string) => {
+      doc.text(line, left, y);
+      y += spacing;
+    });
+  };
+
+  doc.setFontSize(16);
+  doc.text("Goals Export", left, y);
+  y += 7;
+  doc.setFontSize(10);
+  doc.text(`Generated on ${new Date().toLocaleString()}`, left, y);
+  y += 8;
+
+  goals.forEach((goal, index) => {
+    ensureSpace(18);
+    doc.setFontSize(12);
+    doc.text(`${index + 1}. ${goal.title}`, left, y);
+    y += 6;
+    doc.setFontSize(10);
+    writeParagraph(`Status: ${goal.status} | Timeline: ${goal.start_date} to ${goal.target_date}`);
+
+    if (goal.description) {
+      writeParagraph(`Description: ${goal.description}`);
+    }
+    if (goal.action_plan) {
+      writeParagraph(`Action Plan: ${goal.action_plan}`);
+    }
+    if (goal.metric_label || goal.metric_target !== null || goal.metric_unit) {
+      writeParagraph(`Metric (${goal.metric_label ?? "value"}): ${formatMetric(goal) || "N/A"}`);
+    }
+
+    const smart = formatSmartFlags(goal);
+    writeParagraph(`SMART Flags: ${smart || "None"}`);
+
+    if (goal.completed_at) {
+      writeParagraph(`Completed At: ${goal.completed_at}`);
+    }
+
+    y += 2;
+    ensureSpace(8);
+    doc.setDrawColor(220, 220, 220);
+    doc.line(left, y, left + maxWidth, y);
+    y += 6;
+  });
+
+  const fileName = `goals-${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(fileName);
+}
+
+function handleExportGoals(format: "csv" | "pdf") {
+  if (goalsStore.goals.length === 0) {
+    toast.add({
+      severity: "warn",
+      summary: "No goals to export",
+      detail: "Create a goal first, then export your data.",
+      life: 2500,
+    });
+    return;
+  }
+
+  exportLoading.value = format;
+  try {
+    if (format === "csv") {
+      exportGoalsAsCsv(goalsStore.goals);
+    } else {
+      exportGoalsAsPdf(goalsStore.goals);
+    }
+
+    toast.add({
+      severity: "success",
+      summary: `Goals exported as ${format.toUpperCase()}`,
+      detail: "Your download has started.",
+      life: 2500,
+    });
+  } catch (err) {
+    toast.add({
+      severity: "error",
+      summary: "Export failed",
+      detail: err instanceof Error ? err.message : "Unable to export goals right now.",
+      life: 3000,
+    });
+  } finally {
+    exportLoading.value = null;
+  }
 }
 
 const goalDialogHeader = computed(() => (editingGoalId.value ? "Edit Goal" : "Create New Goal"));
@@ -322,6 +503,23 @@ async function handleCompleteGoal(goalId: string) {
         <p class="mt-2 text-slate-500">
           {{ activeGoalsCount === 0 ? 'No active goals yet' : 'Keep building momentum on your active goals' }}
         </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <Button
+            label="Export CSV"
+            icon="pi pi-download"
+            severity="secondary"
+            outlined
+            :loading="exportLoading === 'csv'"
+            @click="handleExportGoals('csv')"
+          />
+          <Button
+            label="Export PDF"
+            icon="pi pi-file-pdf"
+            severity="contrast"
+            :loading="exportLoading === 'pdf'"
+            @click="handleExportGoals('pdf')"
+          />
+        </div>
       </div>
 
       <Message v-if="goalsStore.loading" severity="info" :closable="false">Loading goals...</Message>
